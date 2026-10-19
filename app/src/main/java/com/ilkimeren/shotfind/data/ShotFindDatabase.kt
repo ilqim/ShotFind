@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [ScreenshotEntity::class],
-    version =2,
+    version =3,
     exportSchema = false
 )
 abstract class ShotFindDatabase : RoomDatabase() {
