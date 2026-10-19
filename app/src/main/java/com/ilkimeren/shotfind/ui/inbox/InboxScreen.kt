@@ -102,6 +102,7 @@ fun InboxScreen(
             ScreenshotGrid(
                 screenshots = state.screenshots,
                 totalCount = state.totalCount,
+                pendingOcrCount = state.pendingOcrCount,
                 modifier = modifier
             )
         }
@@ -112,6 +113,7 @@ fun InboxScreen(
 private fun ScreenshotGrid(
     screenshots: List<Screenshot>,
     totalCount: Int,
+    pendingOcrCount: Int,
     modifier: Modifier = Modifier
 ) {
     if (screenshots.isEmpty()) {
@@ -132,7 +134,11 @@ private fun ScreenshotGrid(
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = "Veritabanında toplam $totalCount kayıt",
+                text = if (pendingOcrCount > 0) {
+                    "Metinler taranıyor: ${totalCount - pendingOcrCount} / $totalCount"
+                } else {
+                    "$totalCount ekran görüntüsünün tamamı aranabilir"
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

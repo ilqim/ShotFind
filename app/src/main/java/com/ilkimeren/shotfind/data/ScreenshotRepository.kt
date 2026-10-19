@@ -20,6 +20,7 @@ class ScreenshotRepository(context: Context) {
         }
 
     fun observeTotalCount(): Flow<Int> = dao.observeCount()
+    fun observePendingOcrCount(): Flow<Int> = dao.observePendingOcrCount()
 
     /**
      * Makes the database match MediaStore: adds new screenshots, updates moved or
