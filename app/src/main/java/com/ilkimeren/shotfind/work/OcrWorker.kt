@@ -11,6 +11,7 @@ import androidx.work.WorkerParameters
 import com.ilkimeren.shotfind.data.ShotFindDatabase
 import com.ilkimeren.shotfind.ocr.OcrProcessor
 import kotlinx.coroutines.CancellationException
+import com.ilkimeren.shotfind.data.SearchNormalizer
 
 /**
  * Runs OCR on screenshots that haven't been processed yet, in chunks.
@@ -45,7 +46,10 @@ class OcrWorker(
                         }
                     }
                     // Mark as done even on failure, so a broken file isn't retried forever
-                    dao.saveOcrResult(item.mediaId, text)
+                    val searchText = SearchNormalizer.normalize(
+                        listOfNotNull(text, item.note, item.sourceApp).joinToString("\n")
+                    ).ifBlank { null }
+                    dao.saveOcrResult(item.mediaId, text, searchText)
                     processed++
                 }
             }

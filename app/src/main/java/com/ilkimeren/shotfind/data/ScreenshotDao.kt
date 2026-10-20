@@ -6,6 +6,8 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
+import androidx.room.RawQuery
+import androidx.sqlite.db.SupportSQLiteQuery
 
 @Dao
 abstract class ScreenshotDao {
@@ -34,14 +36,20 @@ abstract class ScreenshotDao {
     @Query("SELECT * FROM screenshots WHERE ocrDone = 0 ORDER BY capturedAt DESC LIMIT :limit")
     abstract suspend fun getPendingOcr(limit: Int): List<ScreenshotEntity>
 
-    @Query("UPDATE screenshots SET ocrText = :text, ocrDone = 1 WHERE mediaId = :mediaId")
-    abstract suspend fun saveOcrResult(mediaId: Long, text: String?)
+    @Query("UPDATE screenshots SET ocrText = :text, searchText = :searchText, ocrDone = 1 WHERE mediaId = :mediaId")
+    abstract suspend fun saveOcrResult(mediaId: Long, text: String?, searchText: String?)
 
     @Query("SELECT COUNT(*) FROM screenshots WHERE ocrDone = 0")
     abstract fun observePendingOcrCount(): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM screenshots WHERE ocrDone = 0")
     abstract suspend fun countPendingOcr(): Int
+
+    // ---- Search ----
+
+    // The query is built at runtime because the number of search words varies
+    @RawQuery(observedEntities = [ScreenshotEntity::class])
+    abstract fun observeSearch(query: SupportSQLiteQuery): Flow<List<ScreenshotEntity>>
 
     /** Applies all sync changes at once: either everything succeeds or nothing changes. */
     @Transaction

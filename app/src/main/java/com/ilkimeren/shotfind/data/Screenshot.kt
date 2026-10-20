@@ -8,6 +8,7 @@ data class Screenshot(
     val uri: Uri,              // content://... address used to open the image
     val displayName: String,   // file name
     val dateAddedMillis: Long,
+    val capturedAtMillis: Long,
     val sizeBytes: Long,
     val width: Int,
     val height: Int,

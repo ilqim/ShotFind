@@ -7,6 +7,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import androidx.sqlite.db.SimpleSQLiteQuery
+import kotlinx.coroutines.flow.flowOf
 
 class ScreenshotRepository(context: Context) {
 
@@ -21,6 +23,34 @@ class ScreenshotRepository(context: Context) {
 
     fun observeTotalCount(): Flow<Int> = dao.observeCount()
     fun observePendingOcrCount(): Flow<Int> = dao.observePendingOcrCount()
+
+    /**
+     * Screenshots whose text contains every word of the query (in any order),
+     * newest first. Updates live as OCR processes more screenshots.
+     */
+    fun search(query: String): Flow<List<SearchResult>> {
+        val words = SearchNormalizer.normalize(query)
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+            .take(MAX_SEARCH_WORDS)
+        if (words.isEmpty()) return flowOf(emptyList())
+
+        // One "searchText LIKE ?" per word, joined with AND
+        val where = words.joinToString(" AND ") { "searchText LIKE ? ESCAPE '\\'" }
+        val args: Array<Any> = words.map { "%${escapeLike(it)}%" }.toTypedArray()
+        val sql = SimpleSQLiteQuery(
+            "SELECT * FROM screenshots WHERE $where ORDER BY capturedAt DESC LIMIT $MAX_RESULTS",
+            args
+        )
+
+        return dao.observeSearch(sql).map { entities ->
+            entities.map { SearchResult(it.toScreenshot(), it.ocrText) }
+        }
+    }
+
+    /** % and _ are wildcards in LIKE; escape them so they are matched literally. */
+    private fun escapeLike(text: String): String =
+        text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
     /**
      * Makes the database match MediaStore: adds new screenshots, updates moved or
@@ -85,6 +115,7 @@ class ScreenshotRepository(context: Context) {
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idCol)
                 val name = cursor.getString(nameCol) ?: ""
+                val sourceApp = ScreenshotNameParser.parseSourceApp(name)
                 val dateAddedMillis = cursor.getLong(dateCol) * 1000 // stored in seconds
                 val dateTaken = cursor.getLong(takenCol)             // already in ms, 0 if missing
                 val capturedAt = ScreenshotNameParser.parseCapturedAt(name)
@@ -100,7 +131,8 @@ class ScreenshotRepository(context: Context) {
                     width = cursor.getInt(widthCol),
                     height = cursor.getInt(heightCol),
                     relativePath = cursor.getString(pathCol) ?: "",
-                    sourceApp = ScreenshotNameParser.parseSourceApp(name)
+                    sourceApp = sourceApp,
+                    searchText = sourceApp?.let { SearchNormalizer.normalize(it) },
                 )
             }
         }
@@ -111,5 +143,7 @@ class ScreenshotRepository(context: Context) {
     companion object {
         // Samsung uses DCIM/Screenshots/, stock Android uses Pictures/Screenshots/
         val INBOX_FOLDERS = listOf("DCIM/Screenshots/", "Pictures/Screenshots/")
+        private const val MAX_SEARCH_WORDS = 8
+        private const val MAX_RESULTS = 300
     }
 }

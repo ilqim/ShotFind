@@ -19,7 +19,8 @@ data class ScreenshotEntity(
     val sourceApp: String?,
     val note: String? = null,          // filled in a later step
     val ocrText: String? = null,       // filled by OCR in the next step
-    val ocrDone: Boolean = false
+    val ocrDone: Boolean = false,
+    val searchText: String? = null     // normalized OCR text + note + source app, used for search
 )
 
 /** Just the columns needed to detect moved or renamed files during sync. */
@@ -34,6 +35,7 @@ fun ScreenshotEntity.toScreenshot() = Screenshot(
     uri = uri.toUri(),
     displayName = displayName,
     dateAddedMillis = dateAdded,
+    capturedAtMillis = capturedAt,
     sizeBytes = sizeBytes,
     width = width,
     height = height,
