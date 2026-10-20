@@ -91,6 +91,8 @@ abstract class ScreenshotDao {
 
     // ---- Trash ----
 
+    @Query("SELECT * FROM screenshots WHERE trashedAt IS NOT NULL ORDER BY trashedAt DESC")
+    abstract fun observeTrashed(): Flow<List<ScreenshotEntity>>
     @Query("UPDATE screenshots SET trashedAt = :trashedAt WHERE mediaId = :mediaId")
     abstract suspend fun markTrashed(mediaId: Long, trashedAt: Long)
 

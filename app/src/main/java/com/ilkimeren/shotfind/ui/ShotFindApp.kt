@@ -28,6 +28,7 @@ import com.ilkimeren.shotfind.ui.detail.DetailScreen
 import com.ilkimeren.shotfind.ui.detail.DetailViewModel
 import androidx.navigation.navDeepLink
 import androidx.compose.foundation.layout.consumeWindowInsets
+import com.ilkimeren.shotfind.ui.trash.TrashScreen
 
 /** The tabs shown in the bottom navigation bar. */
 enum class TopLevelDestination(
@@ -41,6 +42,7 @@ enum class TopLevelDestination(
 }
 
 private const val DETAIL_ROUTE = "detail/{${DetailViewModel.MEDIA_ID_ARG}}"
+private const val TRASH_ROUTE = "trash"
 private fun detailRoute(mediaId: Long) = "detail/$mediaId"
 
 @Composable
@@ -90,7 +92,12 @@ fun ShotFindApp() {
             composable(TopLevelDestination.SEARCH.route) {
                 SearchScreen(onScreenshotClick = { navController.navigate(detailRoute(it)) })
             }
-            composable(TopLevelDestination.SETTINGS.route) { SettingsScreen() }
+            composable(TopLevelDestination.SETTINGS.route) {
+                SettingsScreen(onOpenTrash = { navController.navigate(TRASH_ROUTE) })
+            }
+            composable(TRASH_ROUTE) {
+                TrashScreen(onBack = { navController.popBackStack() })
+            }
             composable(
                 route = DETAIL_ROUTE,
                 arguments = listOf(navArgument(DetailViewModel.MEDIA_ID_ARG) { type = NavType.LongType }),

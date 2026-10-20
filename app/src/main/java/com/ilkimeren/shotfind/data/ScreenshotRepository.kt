@@ -45,6 +45,18 @@ class ScreenshotRepository(context: Context) {
         dao.clearTrashed(listOf(mediaId))
     }
 
+    /** Screenshots we moved to the trash, most recently trashed first. */
+    fun observeTrashed(): Flow<List<Screenshot>> =
+        dao.observeTrashed().map { entities -> entities.map { it.toScreenshot() } }
+
+    /** System dialog to take several screenshots out of the trash at once. */
+    fun createRestoreRequest(uris: List<android.net.Uri>): IntentSender =
+        MediaStore.createTrashRequest(appContext.contentResolver, uris, false).intentSender
+
+    suspend fun markRestored(ids: List<Long>) {
+        dao.clearTrashed(ids)
+    }
+
     suspend fun getScreenshot(mediaId: Long): Screenshot? =
         dao.getById(mediaId)?.toScreenshot()
 
