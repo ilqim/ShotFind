@@ -19,11 +19,17 @@ import androidx.core.net.toUri
 import com.ilkimeren.shotfind.MainActivity
 import com.ilkimeren.shotfind.R
 import com.ilkimeren.shotfind.data.Screenshot
+import androidx.core.app.RemoteInput
+import com.ilkimeren.shotfind.notification.NoteReplyReceiver
+import com.ilkimeren.shotfind.notification.TrashActivity
 
 object ShotNotifications {
 
     private const val CHANNEL_NEW_SCREENSHOTS = "new_screenshots"
     private const val SUMMARY_NOTIFICATION_ID = 1
+
+    const val EXTRA_MEDIA_ID = "media_id"
+    const val KEY_NOTE_REPLY = "note_reply"
 
     fun ensureChannels(context: Context) {
         val channel = NotificationChannel(
@@ -67,6 +73,8 @@ object ShotNotifications {
             )
             .setContentIntent(openDetailIntent(context, screenshot.id))
             .setAutoCancel(true) // dismiss when tapped
+            .addAction(noteAction(context, screenshot.id))
+            .addAction(trashAction(context, screenshot.id))
             .build()
 
         NotificationManagerCompat.from(context).notify(notificationId(screenshot.id), notification)
@@ -94,6 +102,66 @@ object ShotNotifications {
             .build()
 
         NotificationManagerCompat.from(context).notify(SUMMARY_NOTIFICATION_ID, notification)
+    }
+
+    /** Replaces the screenshot's notification with a short confirmation. */
+    @SuppressLint("MissingPermission") // checked with canPost()
+    fun showNoteSaved(context: Context, mediaId: Long, note: String) {
+        if (!canPost(context)) return
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_NEW_SCREENSHOTS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Not kaydedildi")
+            .setContentText(note)
+            .setContentIntent(openDetailIntent(context, mediaId))
+            .setSilent(true)        // no sound or pop-up for the confirmation
+            .setAutoCancel(true)
+            .setTimeoutAfter(4_000) // disappears by itself
+            .build()
+
+        NotificationManagerCompat.from(context).notify(notificationId(mediaId), notification)
+    }
+
+    fun cancel(context: Context, mediaId: Long) {
+        NotificationManagerCompat.from(context).cancel(notificationId(mediaId))
+    }
+
+    private fun noteAction(context: Context, mediaId: Long): NotificationCompat.Action {
+        val remoteInput = RemoteInput.Builder(KEY_NOTE_REPLY)
+            .setLabel("Neden aldın?")
+            .build()
+
+        val intent = Intent(context, NoteReplyReceiver::class.java)
+            .putExtra(EXTRA_MEDIA_ID, mediaId)
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId(mediaId),
+            intent,
+            // Must be MUTABLE so the system can attach the typed text to the intent
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        return NotificationCompat.Action.Builder(R.drawable.ic_notification, "Not ekle", pendingIntent)
+            .addRemoteInput(remoteInput)
+            .setAllowGeneratedReplies(false) // no auto-suggested replies like "OK"
+            .build()
+    }
+
+    private fun trashAction(context: Context, mediaId: Long): NotificationCompat.Action {
+        val intent = Intent(context, TrashActivity::class.java)
+            .putExtra(EXTRA_MEDIA_ID, mediaId)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId(mediaId),
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        return NotificationCompat.Action.Builder(R.drawable.ic_notification, "Sil", pendingIntent)
+            .build()
     }
 
     /** A small, memory-friendly version of the image for the notification. */

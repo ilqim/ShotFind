@@ -10,6 +10,8 @@
         android:maxSdkVersion="32" />
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Lets the user allow moving/trashing screenshots without a confirmation dialog each time -->
+    <uses-permission android:name="android.permission.MANAGE_MEDIA" />
 
     <application
         android:allowBackup="true"
@@ -32,6 +34,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".notification.NoteReplyReceiver"
+            android:exported="false" />
+
+        <activity
+            android:name=".notification.TrashActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.ShotFind.Transparent" />
     </application>
 
 </manifest>

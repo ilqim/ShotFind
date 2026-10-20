@@ -35,6 +35,11 @@ class ScreenshotRepository(context: Context) {
         dao.updateNote(mediaId, cleaned, searchText)
     }
 
+    /** Removes a screenshot from our database (e.g. after it was moved to the trash). */
+    suspend fun removeFromDatabase(mediaId: Long) {
+        dao.deleteByIds(listOf(mediaId))
+    }
+
     /**
      * Screenshots whose text contains every word of the query (in any order),
      * newest first. Updates live as OCR processes more screenshots.
