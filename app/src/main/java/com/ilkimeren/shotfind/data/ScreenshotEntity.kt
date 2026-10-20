@@ -40,5 +40,7 @@ fun ScreenshotEntity.toScreenshot() = Screenshot(
     width = width,
     height = height,
     relativePath = relativePath,
-    sourceApp = sourceApp
+    sourceApp = sourceApp,
+    note = note,
+    ocrText = ocrText
 )

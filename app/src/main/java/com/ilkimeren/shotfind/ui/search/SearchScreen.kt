@@ -33,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -45,21 +44,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.ilkimeren.shotfind.data.SearchResult
-import com.ilkimeren.shotfind.util.openInGallery
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import com.ilkimeren.shotfind.util.formatCaptureDate
 
 @Composable
 fun SearchScreen(
     modifier: Modifier = Modifier,
+    onScreenshotClick: (Long) -> Unit = {},
     viewModel: SearchViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val pendingOcr by viewModel.pendingOcrCount.collectAsStateWithLifecycle()
     val keyboard = LocalSoftwareKeyboardController.current
-    val context = LocalContext.current
 
     Column(modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -88,7 +83,7 @@ fun SearchScreen(
             is SearchUiState.Results -> SearchResults(
                 state = state,
                 pendingOcr = pendingOcr,
-                onOpen = { result -> openInGallery(context, result.screenshot.uri) }
+                onOpen = { result -> onScreenshotClick(result.screenshot.id) }
             )
         }
     }
@@ -205,7 +200,7 @@ private fun SearchResultRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = listOfNotNull(
-                    formatDate(result.screenshot.capturedAtMillis),
+                    formatCaptureDate(result.screenshot.capturedAtMillis),
                     result.screenshot.sourceApp
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.labelMedium,
@@ -236,9 +231,3 @@ private fun PendingOcrNote(pendingOcr: Int) {
         )
     }
 }
-
-private val dateFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", Locale.forLanguageTag("tr"))
-
-private fun formatDate(millis: Long): String =
-    Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).format(dateFormatter)

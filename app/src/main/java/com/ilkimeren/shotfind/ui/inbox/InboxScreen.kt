@@ -49,10 +49,12 @@ import com.ilkimeren.shotfind.data.Screenshot
 import com.ilkimeren.shotfind.util.hasImagePermission
 import com.ilkimeren.shotfind.util.imagePermission
 import com.ilkimeren.shotfind.util.openAppSettings
+import androidx.compose.foundation.clickable
 
 @Composable
 fun InboxScreen(
     modifier: Modifier = Modifier,
+    onScreenshotClick: (Long) -> Unit = {},
     viewModel: InboxViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -103,6 +105,7 @@ fun InboxScreen(
                 screenshots = state.screenshots,
                 totalCount = state.totalCount,
                 pendingOcrCount = state.pendingOcrCount,
+                onScreenshotClick = onScreenshotClick,
                 modifier = modifier
             )
         }
@@ -113,6 +116,7 @@ fun InboxScreen(
 private fun ScreenshotGrid(
     screenshots: List<Screenshot>,
     totalCount: Int,
+    onScreenshotClick: (Long) -> Unit,
     pendingOcrCount: Int,
     modifier: Modifier = Modifier
 ) {
@@ -151,19 +155,23 @@ private fun ScreenshotGrid(
             modifier = Modifier.fillMaxSize()
         ) {
             items(screenshots, key = { it.id }) { screenshot ->
-                ScreenshotThumbnail(screenshot)
+                ScreenshotThumbnail(
+                    screenshot = screenshot,
+                    onClick = { onScreenshotClick(screenshot.id) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ScreenshotThumbnail(screenshot: Screenshot) {
+private fun ScreenshotThumbnail(screenshot: Screenshot, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .aspectRatio(9f / 16f)
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
     ) {
         AsyncImage(
             model = screenshot.uri,

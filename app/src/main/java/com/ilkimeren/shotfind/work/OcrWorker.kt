@@ -46,9 +46,7 @@ class OcrWorker(
                         }
                     }
                     // Mark as done even on failure, so a broken file isn't retried forever
-                    val searchText = SearchNormalizer.normalize(
-                        listOfNotNull(text, item.note, item.sourceApp).joinToString("\n")
-                    ).ifBlank { null }
+                    val searchText = SearchNormalizer.buildSearchText(text, item.note, item.sourceApp)
                     dao.saveOcrResult(item.mediaId, text, searchText)
                     processed++
                 }

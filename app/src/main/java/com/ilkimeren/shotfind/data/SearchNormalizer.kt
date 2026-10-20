@@ -23,4 +23,9 @@ object SearchNormalizer {
         return Normalizer.normalize(lower, Normalizer.Form.NFD)
             .replace(combiningMarks, "")
     }
+
+    /** Builds the stored search text from everything a screenshot can be found by. */
+    fun buildSearchText(ocrText: String?, note: String?, sourceApp: String?): String? =
+        normalize(listOfNotNull(ocrText, note, sourceApp).joinToString("\n"))
+            .ifBlank { null }
 }

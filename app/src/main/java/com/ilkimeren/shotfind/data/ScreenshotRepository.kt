@@ -24,6 +24,17 @@ class ScreenshotRepository(context: Context) {
     fun observeTotalCount(): Flow<Int> = dao.observeCount()
     fun observePendingOcrCount(): Flow<Int> = dao.observePendingOcrCount()
 
+    fun observeScreenshot(mediaId: Long): Flow<Screenshot?> =
+        dao.observeById(mediaId).map { it?.toScreenshot() }
+
+    /** Saves the note and refreshes the search text so the note becomes searchable. */
+    suspend fun saveNote(mediaId: Long, note: String) {
+        val entity = dao.getById(mediaId) ?: return
+        val cleaned = note.trim().ifBlank { null }
+        val searchText = SearchNormalizer.buildSearchText(entity.ocrText, cleaned, entity.sourceApp)
+        dao.updateNote(mediaId, cleaned, searchText)
+    }
+
     /**
      * Screenshots whose text contains every word of the query (in any order),
      * newest first. Updates live as OCR processes more screenshots.

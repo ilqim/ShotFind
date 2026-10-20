@@ -13,5 +13,7 @@ data class Screenshot(
     val width: Int,
     val height: Int,
     val relativePath: String,  // e.g. "DCIM/Screenshots/"
-    val sourceApp: String?     // parsed from file name, null if unknown
+    val sourceApp: String?,     // parsed from file name, null if unknown
+    val note: String?,
+    val ocrText: String?
 )

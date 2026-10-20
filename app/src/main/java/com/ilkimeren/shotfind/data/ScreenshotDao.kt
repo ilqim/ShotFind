@@ -51,6 +51,17 @@ abstract class ScreenshotDao {
     @RawQuery(observedEntities = [ScreenshotEntity::class])
     abstract fun observeSearch(query: SupportSQLiteQuery): Flow<List<ScreenshotEntity>>
 
+    // ---- Single screenshot ----
+
+    @Query("SELECT * FROM screenshots WHERE mediaId = :mediaId")
+    abstract fun observeById(mediaId: Long): Flow<ScreenshotEntity?>
+
+    @Query("SELECT * FROM screenshots WHERE mediaId = :mediaId")
+    abstract suspend fun getById(mediaId: Long): ScreenshotEntity?
+
+    @Query("UPDATE screenshots SET note = :note, searchText = :searchText WHERE mediaId = :mediaId")
+    abstract suspend fun updateNote(mediaId: Long, note: String?, searchText: String?)
+
     /** Applies all sync changes at once: either everything succeeds or nothing changes. */
     @Transaction
     open suspend fun applySync(

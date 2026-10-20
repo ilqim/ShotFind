@@ -22,6 +22,10 @@ import androidx.navigation.compose.rememberNavController
 import com.ilkimeren.shotfind.ui.inbox.InboxScreen
 import com.ilkimeren.shotfind.ui.search.SearchScreen
 import com.ilkimeren.shotfind.ui.settings.SettingsScreen
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import com.ilkimeren.shotfind.ui.detail.DetailScreen
+import com.ilkimeren.shotfind.ui.detail.DetailViewModel
 
 /** The tabs shown in the bottom navigation bar. */
 enum class TopLevelDestination(
@@ -34,32 +38,39 @@ enum class TopLevelDestination(
     SETTINGS("settings", "Ayarlar", Icons.Outlined.Settings)
 }
 
+private const val DETAIL_ROUTE = "detail/{${DetailViewModel.MEDIA_ID_ARG}}"
+private fun detailRoute(mediaId: Long) = "detail/$mediaId"
+
 @Composable
 fun ShotFindApp() {
     val navController = rememberNavController()
     // Observe the current screen so the bottom bar highlights the right tab
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+    // Hide the bottom bar on screens that aren't tabs (e.g. detail)
+    val showBottomBar = TopLevelDestination.entries.any { it.route == currentRoute }
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                TopLevelDestination.entries.forEach { destination ->
-                    NavigationBarItem(
-                        selected = currentRoute == destination.route,
-                        onClick = {
-                            navController.navigate(destination.route) {
-                                // Don't pile up screens when switching tabs
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+            if (showBottomBar) {
+                NavigationBar {
+                    TopLevelDestination.entries.forEach { destination ->
+                        NavigationBarItem(
+                            selected = currentRoute == destination.route,
+                            onClick = {
+                                navController.navigate(destination.route) {
+                                    // Don't pile up screens when switching tabs
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(destination.icon, contentDescription = null) },
-                        label = { Text(destination.label) }
-                    )
+                            },
+                            icon = { Icon(destination.icon, contentDescription = null) },
+                            label = { Text(destination.label) }
+                        )
+                    }
                 }
             }
         }
@@ -69,9 +80,19 @@ fun ShotFindApp() {
             startDestination = TopLevelDestination.INBOX.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(TopLevelDestination.INBOX.route) { InboxScreen() }
-            composable(TopLevelDestination.SEARCH.route) { SearchScreen() }
+            composable(TopLevelDestination.INBOX.route) {
+                InboxScreen(onScreenshotClick = { navController.navigate(detailRoute(it)) })
+            }
+            composable(TopLevelDestination.SEARCH.route) {
+                SearchScreen(onScreenshotClick = { navController.navigate(detailRoute(it)) })
+            }
             composable(TopLevelDestination.SETTINGS.route) { SettingsScreen() }
+            composable(
+                route = DETAIL_ROUTE,
+                arguments = listOf(navArgument(DetailViewModel.MEDIA_ID_ARG) { type = NavType.LongType })
+            ) {
+                DetailScreen(onBack = { navController.popBackStack() })
+            }
         }
     }
 }
