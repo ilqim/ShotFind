@@ -50,7 +50,10 @@ import com.ilkimeren.shotfind.util.hasImagePermission
 import com.ilkimeren.shotfind.util.imagePermission
 import com.ilkimeren.shotfind.util.openAppSettings
 import androidx.compose.foundation.clickable
-
+import android.Manifest
+import android.os.Build
+import androidx.compose.runtime.LaunchedEffect
+import com.ilkimeren.shotfind.util.ShotNotifications
 @Composable
 fun InboxScreen(
     modifier: Modifier = Modifier,
@@ -77,6 +80,23 @@ fun InboxScreen(
         hasPermission = hasImagePermission(context)
         if (hasPermission) viewModel.loadScreenshots()
         onPauseOrDispose { }
+    }
+
+    // After photo access is granted, also ask for notification permission (Android 13+)
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* the app works without it, nothing to do here */ }
+    var askedForNotifications by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(hasPermission) {
+        if (hasPermission &&
+            !askedForNotifications &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !ShotNotifications.canPost(context)
+        ) {
+            askedForNotifications = true
+            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     if (!hasPermission) {

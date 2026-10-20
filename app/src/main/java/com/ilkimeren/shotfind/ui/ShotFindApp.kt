@@ -26,6 +26,7 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.ilkimeren.shotfind.ui.detail.DetailScreen
 import com.ilkimeren.shotfind.ui.detail.DetailViewModel
+import androidx.navigation.navDeepLink
 
 /** The tabs shown in the bottom navigation bar. */
 enum class TopLevelDestination(
@@ -89,7 +90,8 @@ fun ShotFindApp() {
             composable(TopLevelDestination.SETTINGS.route) { SettingsScreen() }
             composable(
                 route = DETAIL_ROUTE,
-                arguments = listOf(navArgument(DetailViewModel.MEDIA_ID_ARG) { type = NavType.LongType })
+                arguments = listOf(navArgument(DetailViewModel.MEDIA_ID_ARG) { type = NavType.LongType }),
+                deepLinks = listOf(navDeepLink { uriPattern = "shotfind://detail/{${DetailViewModel.MEDIA_ID_ARG}}" }),
             ) {
                 DetailScreen(onBack = { navController.popBackStack() })
             }

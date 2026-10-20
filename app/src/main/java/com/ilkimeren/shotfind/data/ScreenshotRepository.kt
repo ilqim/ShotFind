@@ -67,27 +67,31 @@ class ScreenshotRepository(context: Context) {
      * Makes the database match MediaStore: adds new screenshots, updates moved or
      * renamed ones, removes deleted ones. Notes and OCR text are kept.
      */
-    suspend fun syncFromMediaStore() {
-        withContext(Dispatchers.IO) {
-            val fromStore = queryAllScreenshots()
-            val existing = dao.getAllLocations().associateBy { it.mediaId }
+    /**
+     * Makes the database match MediaStore: adds new screenshots, updates moved or
+     * renamed ones, removes deleted ones. Notes and OCR text are kept.
+     * Returns the screenshots that were newly added.
+     */
+    suspend fun syncFromMediaStore(): List<Screenshot> = withContext(Dispatchers.IO) {
+        val fromStore = queryAllScreenshots()
+        val existing = dao.getAllLocations().associateBy { it.mediaId }
 
-            val toInsert = fromStore.filter { it.mediaId !in existing }
+        val toInsert = fromStore.filter { it.mediaId !in existing }
 
-            val moved = fromStore.mapNotNull { item ->
-                val old = existing[item.mediaId] ?: return@mapNotNull null
-                if (old.relativePath != item.relativePath || old.displayName != item.displayName) {
-                    ScreenshotLocation(item.mediaId, item.relativePath, item.displayName)
-                } else {
-                    null
-                }
+        val moved = fromStore.mapNotNull { item ->
+            val old = existing[item.mediaId] ?: return@mapNotNull null
+            if (old.relativePath != item.relativePath || old.displayName != item.displayName) {
+                ScreenshotLocation(item.mediaId, item.relativePath, item.displayName)
+            } else {
+                null
             }
-
-            val storeIds = fromStore.mapTo(HashSet()) { it.mediaId }
-            val removedIds = existing.keys.filter { it !in storeIds }
-
-            dao.applySync(toInsert, moved, removedIds)
         }
+
+        val storeIds = fromStore.mapTo(HashSet()) { it.mediaId }
+        val removedIds = existing.keys.filter { it !in storeIds }
+
+        dao.applySync(toInsert, moved, removedIds)
+        toInsert.map { it.toScreenshot() }
     }
 
     /** All screenshots, including those in our tag subfolders (e.g. DCIM/Screenshots/Ders/). */
