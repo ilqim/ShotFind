@@ -51,6 +51,14 @@ abstract class ScreenshotDao {
     @RawQuery(observedEntities = [ScreenshotEntity::class])
     abstract fun observeSearch(query: SupportSQLiteQuery): Flow<List<ScreenshotEntity>>
 
+    // ---- Incremental sync ----
+
+    @Query("SELECT MAX(mediaId) FROM screenshots")
+    abstract suspend fun maxMediaId(): Long?
+
+    @Query("SELECT mediaId FROM screenshots WHERE mediaId IN (:ids)")
+    abstract suspend fun existingIds(ids: List<Long>): List<Long>
+
     // ---- Single screenshot ----
 
     @Query("SELECT * FROM screenshots WHERE mediaId = :mediaId")

@@ -25,7 +25,7 @@ class NewScreenshotWorker(
     override suspend fun doWork(): Result {
         try {
             val repository = ScreenshotRepository(applicationContext)
-            val added = repository.syncFromMediaStore()
+            val added = repository.syncNewScreenshots()
 
             // Only notify for screenshots that really just arrived, in the inbox folder.
             // (The very first sync adds every old screenshot; those must not notify.)

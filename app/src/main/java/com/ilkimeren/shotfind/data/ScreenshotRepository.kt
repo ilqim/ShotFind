@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import androidx.sqlite.db.SimpleSQLiteQuery
 import kotlinx.coroutines.flow.flowOf
+import android.content.ContentValues
+import android.content.IntentSender
 
 class ScreenshotRepository(context: Context) {
 
@@ -39,6 +41,40 @@ class ScreenshotRepository(context: Context) {
     suspend fun removeFromDatabase(mediaId: Long) {
         dao.deleteByIds(listOf(mediaId))
     }
+
+    /** True if the user granted media management, so moves need no confirmation. */
+    fun canMoveWithoutAsking(): Boolean = MediaStore.canManageMedia(appContext)
+
+    /** System dialog asking the user to let us change this file. */
+    fun createWriteRequest(uri: android.net.Uri): IntentSender =
+        MediaStore.createWriteRequest(appContext.contentResolver, listOf(uri)).intentSender
+
+    /**
+     * Moves the screenshot into a tag folder (e.g. DCIM/Screenshots/Ders/),
+     * or back to the inbox when [tagFolder] is null. Returns false if it failed.
+     */
+    suspend fun moveToFolder(screenshot: Screenshot, tagFolder: String?): Boolean =
+        withContext(Dispatchers.IO) {
+            val base = baseFolderOf(screenshot.relativePath)
+            val target = if (tagFolder == null) base else "$base$tagFolder/"
+            if (target == screenshot.relativePath) return@withContext true
+
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.RELATIVE_PATH, target)
+            }
+            val updatedRows = try {
+                appContext.contentResolver.update(screenshot.uri, values, null, null)
+            } catch (e: SecurityException) {
+                0 // no write access
+            }
+
+            if (updatedRows > 0) {
+                dao.updateLocation(screenshot.id, target, screenshot.displayName)
+                true
+            } else {
+                false
+            }
+        }
 
     /**
      * Screenshots whose text contains every word of the query (in any order),
@@ -99,8 +135,27 @@ class ScreenshotRepository(context: Context) {
         toInsert.map { it.toScreenshot() }
     }
 
+    /**
+     * Cheap check for the background watcher: only looks at screenshots added after the
+     * newest one we know. Moves and deletions are handled by the full sync on app start.
+     */
+    suspend fun syncNewScreenshots(): List<Screenshot> = withContext(Dispatchers.IO) {
+        val maxKnown = dao.maxMediaId()
+            ?: return@withContext syncFromMediaStore() // empty database: do a full sync
+
+        // A small overlap catches screenshots that got their id slightly earlier
+        // but became visible later (e.g. two screenshots saved at the same time)
+        val candidates = queryAllScreenshots(minIdExclusive = maxKnown - ID_OVERLAP)
+        if (candidates.isEmpty()) return@withContext emptyList()
+
+        val known = dao.existingIds(candidates.map { it.mediaId }).toSet()
+        val toInsert = candidates.filter { it.mediaId !in known }
+        if (toInsert.isNotEmpty()) dao.insertAll(toInsert)
+        toInsert.map { it.toScreenshot() }
+    }
+
     /** All screenshots, including those in our tag subfolders (e.g. DCIM/Screenshots/Ders/). */
-    private fun queryAllScreenshots(): List<ScreenshotEntity> {
+    private fun queryAllScreenshots(minIdExclusive: Long? = null): List<ScreenshotEntity> {
         val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
         val projection = arrayOf(
@@ -115,8 +170,12 @@ class ScreenshotRepository(context: Context) {
         )
 
         val path = MediaStore.Images.Media.RELATIVE_PATH
-        val selection = "$path LIKE ? OR $path LIKE ?"
-        val selectionArgs = arrayOf("DCIM/Screenshots/%", "Pictures/Screenshots/%")
+        var selection = "($path LIKE ? OR $path LIKE ?)"
+        var selectionArgs = arrayOf("DCIM/Screenshots/%", "Pictures/Screenshots/%")
+        if (minIdExclusive != null) {
+            selection += " AND ${MediaStore.Images.Media._ID} > ?"
+            selectionArgs += minIdExclusive.toString()
+        }
 
         val result = mutableListOf<ScreenshotEntity>()
 
@@ -164,6 +223,20 @@ class ScreenshotRepository(context: Context) {
         // Samsung uses DCIM/Screenshots/, stock Android uses Pictures/Screenshots/
         val INBOX_FOLDERS = listOf("DCIM/Screenshots/", "Pictures/Screenshots/")
         private const val MAX_SEARCH_WORDS = 8
+        private const val ID_OVERLAP = 100L
         private const val MAX_RESULTS = 300
+
+        /** "DCIM/Screenshots/Ders/" -> "DCIM/Screenshots/" */
+        fun baseFolderOf(relativePath: String): String =
+            INBOX_FOLDERS.firstOrNull { relativePath.startsWith(it) } ?: INBOX_FOLDERS.first()
+
+        /** "DCIM/Screenshots/Ders/" -> "Ders", "DCIM/Screenshots/" -> null */
+        fun tagFolderOf(relativePath: String): String? {
+            val base = INBOX_FOLDERS.firstOrNull { relativePath.startsWith(it) } ?: return null
+            return relativePath.removePrefix(base)
+                .trimEnd('/')
+                .substringBefore('/')
+                .ifBlank { null }
+        }
     }
 }

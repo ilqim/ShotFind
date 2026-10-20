@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Lets the user allow moving/trashing screenshots without a confirmation dialog each time -->
     <uses-permission android:name="android.permission.MANAGE_MEDIA" />
+    <!-- Required (with MANAGE_MEDIA) for write requests to be approved without a dialog -->
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 
     <application
         android:allowBackup="true"

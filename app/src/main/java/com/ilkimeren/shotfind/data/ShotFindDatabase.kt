@@ -4,19 +4,39 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [ScreenshotEntity::class],
-    version =4,
+    entities = [ScreenshotEntity::class, TagEntity::class],
+    version = 5,
     exportSchema = false
 )
 abstract class ShotFindDatabase : RoomDatabase() {
 
     abstract fun screenshotDao(): ScreenshotDao
+    abstract fun tagDao(): TagDao
 
     companion object {
         @Volatile
         private var instance: ShotFindDatabase? = null
+
+        /** Version 4 -> 5: adds the tags table. Existing screenshots, notes and OCR text are kept. */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tags` (" +
+                            "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "`name` TEXT NOT NULL, " +
+                            "`colorArgb` INTEGER NOT NULL, " +
+                            "`folderName` TEXT NOT NULL, " +
+                            "`sortOrder` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_tags_folderName` ON `tags` (`folderName`)"
+                )
+            }
+        }
 
         /** Returns the single database instance for the whole app. */
         fun getInstance(context: Context): ShotFindDatabase =
@@ -26,8 +46,9 @@ abstract class ShotFindDatabase : RoomDatabase() {
                     ShotFindDatabase::class.java,
                     "shotfind.db"
                 )
-                    // During development: if the schema changes, wipe and rebuild.
-                    // Must be replaced with real migrations before release.
+                    .addMigrations(MIGRATION_4_5)
+                    // Still a safety net for older development versions (1-3).
+                    // Must be removed before release.
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
                     .also { instance = it }

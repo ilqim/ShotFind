@@ -54,6 +54,8 @@ import android.Manifest
 import android.os.Build
 import androidx.compose.runtime.LaunchedEffect
 import com.ilkimeren.shotfind.util.ShotNotifications
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 @Composable
 fun InboxScreen(
     modifier: Modifier = Modifier,
@@ -82,20 +84,33 @@ fun InboxScreen(
         onPauseOrDispose { }
     }
 
-    // After photo access is granted, also ask for notification permission (Android 13+)
-    val notificationLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { /* the app works without it, nothing to do here */ }
-    var askedForNotifications by rememberSaveable { mutableStateOf(false) }
+    // After photo access is granted, also ask for:
+    // - notifications (Android 13+)
+    // - media location, which lets moves skip the confirmation dialog when
+    //   media management is allowed
+    val extraPermissionsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* the app works without them, nothing to do here */ }
+    var askedForExtras by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(hasPermission) {
-        if (hasPermission &&
-            !askedForNotifications &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            !ShotNotifications.canPost(context)
-        ) {
-            askedForNotifications = true
-            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (!hasPermission || askedForExtras) return@LaunchedEffect
+
+        val missing = buildList {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                !ShotNotifications.canPost(context)
+            ) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_MEDIA_LOCATION) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                add(Manifest.permission.ACCESS_MEDIA_LOCATION)
+            }
+        }
+        if (missing.isNotEmpty()) {
+            askedForExtras = true
+            extraPermissionsLauncher.launch(missing.toTypedArray())
         }
     }
 

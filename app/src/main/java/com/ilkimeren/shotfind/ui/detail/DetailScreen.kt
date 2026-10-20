@@ -48,6 +48,20 @@ import com.ilkimeren.shotfind.util.formatCaptureDate
 import com.ilkimeren.shotfind.util.openInGallery
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.ui.platform.LocalFocusManager
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.Color
+import com.ilkimeren.shotfind.data.ScreenshotRepository
+import com.ilkimeren.shotfind.data.TagEntity
+import androidx.compose.foundation.layout.imePadding
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,6 +72,21 @@ fun DetailScreen(
 ) {
     val screenshot by viewModel.screenshot.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    val tags by viewModel.tags.collectAsStateWithLifecycle()
+
+    // Shows the system "allow ShotFind to modify this photo?" dialog when needed
+    val writeLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        viewModel.onWriteRequestResult(result.resultCode == Activity.RESULT_OK)
+    }
+    LaunchedEffect(viewModel.writeRequest) {
+        viewModel.writeRequest?.let { sender ->
+            writeLauncher.launch(IntentSenderRequest.Builder(sender).build())
+            viewModel.onWriteRequestLaunched()
+        }
+    }
 
     Column(modifier.fillMaxSize()) {
         TopAppBar(
@@ -86,6 +115,9 @@ fun DetailScreen(
         } else {
             DetailContent(
                 screenshot = current,
+                tags = tags,
+                moveFailed = viewModel.moveFailed,
+                onTagSelected = viewModel::onTagSelected,
                 noteDraft = viewModel.noteDraft,
                 noteSaved = viewModel.noteSaved,
                 onNoteChange = viewModel::onNoteChange,
@@ -98,6 +130,9 @@ fun DetailScreen(
 @Composable
 private fun DetailContent(
     screenshot: Screenshot,
+    tags: List<TagEntity>,
+    moveFailed: Boolean,
+    onTagSelected: (String?) -> Unit,
     noteDraft: String?,
     noteSaved: Boolean,
     onNoteChange: (String) -> Unit,
@@ -111,6 +146,7 @@ private fun DetailContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
@@ -132,6 +168,24 @@ private fun DetailContent(
                 text = "Kaynak: $app",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        // ---- Tag ----
+        Spacer(Modifier.height(20.dp))
+        Text("Etiket", style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.height(8.dp))
+        TagSelector(
+            tags = tags,
+            currentFolder = ScreenshotRepository.tagFolderOf(screenshot.relativePath),
+            onSelect = onTagSelected
+        )
+        if (moveFailed) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Taşınamadı. İzin verilmemiş olabilir.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
             )
         }
 
@@ -214,6 +268,42 @@ private fun DetailContent(
             SelectionContainer {
                 Text(text, style = MaterialTheme.typography.bodyMedium)
             }
+        }
+    }
+}
+
+@Composable
+private fun TagSelector(
+    tags: List<TagEntity>,
+    currentFolder: String?,
+    onSelect: (String?) -> Unit
+) {
+    LazyRow(
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(vertical = 4.dp)
+    ) {
+        // First chip: no tag, the screenshot stays in the inbox
+        item {
+            FilterChip(
+                selected = currentFolder == null,
+                onClick = { onSelect(null) },
+                label = { Text("Gelen kutusu") }
+            )
+        }
+        items(tags, key = { it.id }) { tag ->
+            FilterChip(
+                selected = currentFolder == tag.folderName,
+                onClick = { onSelect(tag.folderName) },
+                label = { Text(tag.name) },
+                leadingIcon = {
+                    Box(
+                        Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(Color(tag.colorArgb))
+                    )
+                }
+            )
         }
     }
 }

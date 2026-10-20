@@ -27,6 +27,7 @@ import androidx.navigation.navArgument
 import com.ilkimeren.shotfind.ui.detail.DetailScreen
 import com.ilkimeren.shotfind.ui.detail.DetailViewModel
 import androidx.navigation.navDeepLink
+import androidx.compose.foundation.layout.consumeWindowInsets
 
 /** The tabs shown in the bottom navigation bar. */
 enum class TopLevelDestination(
@@ -79,7 +80,9 @@ fun ShotFindApp() {
         NavHost(
             navController = navController,
             startDestination = TopLevelDestination.INBOX.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding),
         ) {
             composable(TopLevelDestination.INBOX.route) {
                 InboxScreen(onScreenshotClick = { navController.navigate(detailRoute(it)) })
