@@ -54,6 +54,13 @@
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:theme="@style/Theme.ShotFind.Transparent" />
+
+        <activity
+            android:name=".notification.RestoreActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.ShotFind.Transparent" />
     </application>
 
 </manifest>

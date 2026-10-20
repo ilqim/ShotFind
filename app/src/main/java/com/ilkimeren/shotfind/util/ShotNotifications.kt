@@ -24,6 +24,7 @@ import com.ilkimeren.shotfind.notification.NoteReplyReceiver
 import com.ilkimeren.shotfind.notification.TrashActivity
 import com.ilkimeren.shotfind.data.TagEntity
 import com.ilkimeren.shotfind.notification.MoveActivity
+import com.ilkimeren.shotfind.notification.RestoreActivity
 
 object ShotNotifications {
 
@@ -32,21 +33,34 @@ object ShotNotifications {
 
     const val EXTRA_TAG_FOLDER = "tag_folder"
     const val EXTRA_TAG_NAME = "tag_name"
+    private const val CHANNEL_CONFIRMATIONS = "action_confirmations"
 
     const val EXTRA_MEDIA_ID = "media_id"
     const val KEY_NOTE_REPLY = "note_reply"
 
     fun ensureChannels(context: Context) {
-        val channel = NotificationChannel(
+        val newScreenshots = NotificationChannel(
             CHANNEL_NEW_SCREENSHOTS,
             "Yeni ekran görüntüleri",
-            NotificationManager.IMPORTANCE_DEFAULT
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Yeni bir ekran görüntüsü aldığında not eklemen için"
         }
+
+        // Pops up so the undo button is visible, but without sound or vibration
+        val confirmations = NotificationChannel(
+            CHANNEL_CONFIRMATIONS,
+            "İşlem onayları",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Taşıma, çöpe atma ve not kaydetme onayları"
+            setSound(null, null)
+            enableVibration(false)
+        }
+
         // Safe to call many times; existing channels are left as they are
         context.getSystemService(NotificationManager::class.java)
-            .createNotificationChannel(channel)
+            .createNotificationChannels(listOf(newScreenshots, confirmations))
     }
 
     fun canPost(context: Context): Boolean =
@@ -115,13 +129,13 @@ object ShotNotifications {
     @SuppressLint("MissingPermission") // checked with canPost()
     fun showNoteSaved(context: Context, mediaId: Long, note: String) {
         if (!canPost(context)) return
+        ensureChannels(context)
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_NEW_SCREENSHOTS)
+        val notification = NotificationCompat.Builder(context, CHANNEL_CONFIRMATIONS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Not kaydedildi")
             .setContentText(note)
             .setContentIntent(openDetailIntent(context, mediaId))
-            .setSilent(true)        // no sound or pop-up for the confirmation
             .setAutoCancel(true)
             .setTimeoutAfter(4_000) // disappears by itself
             .build()
@@ -133,14 +147,42 @@ object ShotNotifications {
     @SuppressLint("MissingPermission") // checked with canPost()
     fun showMoved(context: Context, mediaId: Long, tagName: String) {
         if (!canPost(context)) return
+        ensureChannels(context)
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_NEW_SCREENSHOTS)
+        val notification = NotificationCompat.Builder(context, CHANNEL_CONFIRMATIONS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("$tagName etiketine taşındı")
             .setContentIntent(openDetailIntent(context, mediaId))
-            .setSilent(true)
             .setAutoCancel(true)
             .setTimeoutAfter(4_000)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(notificationId(mediaId), notification)
+    }
+
+    /** Replaces the screenshot's notification after trashing, with an undo button. */
+    @SuppressLint("MissingPermission") // checked with canPost()
+    fun showTrashed(context: Context, mediaId: Long) {
+        if (!canPost(context)) return
+        ensureChannels(context)
+
+        val restoreIntent = Intent(context, RestoreActivity::class.java)
+            .putExtra(EXTRA_MEDIA_ID, mediaId)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val restorePending = PendingIntent.getActivity(
+            context,
+            notificationId(mediaId),
+            restoreIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_CONFIRMATIONS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Çöp kutusuna taşındı")
+            .setContentText("30 gün içinde ShotFind'dan geri alabilirsin")
+            .addAction(R.drawable.ic_notification, "Geri al", restorePending)
+            .setAutoCancel(true)
+            .setTimeoutAfter(10_000) // long enough to change your mind
             .build()
 
         NotificationManagerCompat.from(context).notify(notificationId(mediaId), notification)

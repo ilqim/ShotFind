@@ -4,19 +4,23 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Transaction
-import kotlinx.coroutines.flow.Flow
 import androidx.room.RawQuery
+import androidx.room.Transaction
 import androidx.sqlite.db.SupportSQLiteQuery
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 abstract class ScreenshotDao {
 
-    @Query("SELECT * FROM screenshots WHERE relativePath IN (:folders) ORDER BY capturedAt DESC")
+    // ---- Inbox and counts ----
+
+    @Query("SELECT * FROM screenshots WHERE relativePath IN (:folders) AND trashedAt IS NULL ORDER BY capturedAt DESC")
     abstract fun observeByFolders(folders: List<String>): Flow<List<ScreenshotEntity>>
 
-    @Query("SELECT COUNT(*) FROM screenshots")
+    @Query("SELECT COUNT(*) FROM screenshots WHERE trashedAt IS NULL")
     abstract fun observeCount(): Flow<Int>
+
+    // ---- Sync ----
 
     @Query("SELECT mediaId, relativePath, displayName FROM screenshots")
     abstract suspend fun getAllLocations(): List<ScreenshotLocation>
@@ -33,16 +37,16 @@ abstract class ScreenshotDao {
 
     // ---- OCR ----
 
-    @Query("SELECT * FROM screenshots WHERE ocrDone = 0 ORDER BY capturedAt DESC LIMIT :limit")
+    @Query("SELECT * FROM screenshots WHERE ocrDone = 0 AND trashedAt IS NULL ORDER BY capturedAt DESC LIMIT :limit")
     abstract suspend fun getPendingOcr(limit: Int): List<ScreenshotEntity>
 
     @Query("UPDATE screenshots SET ocrText = :text, searchText = :searchText, ocrDone = 1 WHERE mediaId = :mediaId")
     abstract suspend fun saveOcrResult(mediaId: Long, text: String?, searchText: String?)
 
-    @Query("SELECT COUNT(*) FROM screenshots WHERE ocrDone = 0")
+    @Query("SELECT COUNT(*) FROM screenshots WHERE ocrDone = 0 AND trashedAt IS NULL")
     abstract fun observePendingOcrCount(): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM screenshots WHERE ocrDone = 0")
+    @Query("SELECT COUNT(*) FROM screenshots WHERE ocrDone = 0 AND trashedAt IS NULL")
     abstract suspend fun countPendingOcr(): Int
 
     // ---- Search ----
@@ -65,7 +69,7 @@ abstract class ScreenshotDao {
     @Query(
         """
         SELECT relativePath FROM screenshots
-        WHERE sourceApp = :sourceApp AND relativePath NOT IN (:inboxFolders)
+        WHERE sourceApp = :sourceApp AND relativePath NOT IN (:inboxFolders) AND trashedAt IS NULL
         GROUP BY relativePath
         ORDER BY COUNT(*) DESC
         LIMIT 1
@@ -77,13 +81,28 @@ abstract class ScreenshotDao {
     @Query(
         """
         SELECT relativePath FROM screenshots
-        WHERE relativePath NOT IN (:inboxFolders)
+        WHERE relativePath NOT IN (:inboxFolders) AND trashedAt IS NULL
         GROUP BY relativePath
         ORDER BY COUNT(*) DESC
         LIMIT 1
         """
     )
     abstract suspend fun mostUsedFolder(inboxFolders: List<String>): String?
+
+    // ---- Trash ----
+
+    @Query("UPDATE screenshots SET trashedAt = :trashedAt WHERE mediaId = :mediaId")
+    abstract suspend fun markTrashed(mediaId: Long, trashedAt: Long)
+
+    @Query("UPDATE screenshots SET trashedAt = NULL WHERE mediaId IN (:ids)")
+    abstract suspend fun clearTrashed(ids: List<Long>)
+
+    @Query("SELECT mediaId FROM screenshots WHERE trashedAt IS NOT NULL")
+    abstract suspend fun getTrashedIds(): List<Long>
+
+    /** Android permanently deletes trashed items after 30 days; forget them too. */
+    @Query("DELETE FROM screenshots WHERE trashedAt IS NOT NULL AND trashedAt < :before")
+    abstract suspend fun deleteExpiredTrash(before: Long)
 
     // ---- Single screenshot ----
 
@@ -96,16 +115,20 @@ abstract class ScreenshotDao {
     @Query("UPDATE screenshots SET note = :note, searchText = :searchText WHERE mediaId = :mediaId")
     abstract suspend fun updateNote(mediaId: Long, note: String?, searchText: String?)
 
+    // ---- Sync transaction ----
+
     /** Applies all sync changes at once: either everything succeeds or nothing changes. */
     @Transaction
     open suspend fun applySync(
         toInsert: List<ScreenshotEntity>,
         moved: List<ScreenshotLocation>,
-        removedIds: List<Long>
+        removedIds: List<Long>,
+        restoredIds: List<Long>
     ) {
         if (toInsert.isNotEmpty()) insertAll(toInsert)
         moved.forEach { updateLocation(it.mediaId, it.relativePath, it.displayName) }
         // Delete in chunks to stay under SQLite's limit on query parameters
         removedIds.chunked(500).forEach { deleteByIds(it) }
+        restoredIds.chunked(500).forEach { clearTrashed(it) }
     }
 }

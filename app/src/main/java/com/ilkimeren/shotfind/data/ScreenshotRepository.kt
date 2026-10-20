@@ -37,9 +37,12 @@ class ScreenshotRepository(context: Context) {
         dao.updateNote(mediaId, cleaned, searchText)
     }
 
-    /** Removes a screenshot from our database (e.g. after it was moved to the trash). */
-    suspend fun removeFromDatabase(mediaId: Long) {
-        dao.deleteByIds(listOf(mediaId))
+    suspend fun markTrashed(mediaId: Long) {
+        dao.markTrashed(mediaId, System.currentTimeMillis())
+    }
+
+    suspend fun markRestored(mediaId: Long) {
+        dao.clearTrashed(listOf(mediaId))
     }
 
     suspend fun getScreenshot(mediaId: Long): Screenshot? =
@@ -109,8 +112,8 @@ class ScreenshotRepository(context: Context) {
             .take(MAX_SEARCH_WORDS)
         if (words.isEmpty()) return flowOf(emptyList())
 
-        // One "searchText LIKE ?" per word, joined with AND
-        val where = words.joinToString(" AND ") { "searchText LIKE ? ESCAPE '\\'" }
+        // One "searchText LIKE ?" per word, joined with AND, excluding trashed items
+        val where = "trashedAt IS NULL AND " + words.joinToString(" AND ") { "searchText LIKE ? ESCAPE '\\'" }
         val args: Array<Any> = words.map { "%${escapeLike(it)}%" }.toTypedArray()
         val sql = SimpleSQLiteQuery(
             "SELECT * FROM screenshots WHERE $where ORDER BY capturedAt DESC LIMIT $MAX_RESULTS",
@@ -126,10 +129,6 @@ class ScreenshotRepository(context: Context) {
     private fun escapeLike(text: String): String =
         text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
-    /**
-     * Makes the database match MediaStore: adds new screenshots, updates moved or
-     * renamed ones, removes deleted ones. Notes and OCR text are kept.
-     */
     /**
      * Makes the database match MediaStore: adds new screenshots, updates moved or
      * renamed ones, removes deleted ones. Notes and OCR text are kept.
@@ -151,9 +150,17 @@ class ScreenshotRepository(context: Context) {
         }
 
         val storeIds = fromStore.mapTo(HashSet()) { it.mediaId }
-        val removedIds = existing.keys.filter { it !in storeIds }
 
-        dao.applySync(toInsert, moved, removedIds)
+        // Trashed items are hidden from MediaStore queries; don't treat them as deleted
+        val trashedIds = dao.getTrashedIds().toSet()
+        val removedIds = existing.keys.filter { it !in storeIds && it !in trashedIds }
+
+        // Visible again means it was restored outside the app (e.g. from a file manager)
+        val restoredIds = trashedIds.filter { it in storeIds }
+
+        dao.applySync(toInsert, moved, removedIds, restoredIds)
+        dao.deleteExpiredTrash(System.currentTimeMillis() - TRASH_RETENTION_MS)
+
         toInsert.map { it.toScreenshot() }
     }
 
@@ -248,6 +255,7 @@ class ScreenshotRepository(context: Context) {
         private const val ID_OVERLAP = 100L
         private const val MAX_RESULTS = 300
 
+        private const val TRASH_RETENTION_MS = 30L * 24 * 60 * 60 * 1000 // 30 days
         private const val FALLBACK_TAG_FOLDER = "Sonra Bak"
 
         /** "DCIM/Screenshots/Ders/" -> "DCIM/Screenshots/" */

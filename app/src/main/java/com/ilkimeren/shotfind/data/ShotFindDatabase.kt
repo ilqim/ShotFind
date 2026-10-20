@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ScreenshotEntity::class, TagEntity::class],
-    version = 5,
+    version =6,
     exportSchema = false
 )
 abstract class ShotFindDatabase : RoomDatabase() {
@@ -38,6 +38,13 @@ abstract class ShotFindDatabase : RoomDatabase() {
             }
         }
 
+        /** Version 5 -> 6: remembers screenshots we moved to the trash, so they can be restored. */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `screenshots` ADD COLUMN `trashedAt` INTEGER")
+            }
+        }
+
         /** Returns the single database instance for the whole app. */
         fun getInstance(context: Context): ShotFindDatabase =
             instance ?: synchronized(this) {
@@ -46,7 +53,7 @@ abstract class ShotFindDatabase : RoomDatabase() {
                     ShotFindDatabase::class.java,
                     "shotfind.db"
                 )
-                    .addMigrations(MIGRATION_4_5)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
                     // Still a safety net for older development versions (1-3).
                     // Must be removed before release.
                     .fallbackToDestructiveMigration(dropAllTables = true)

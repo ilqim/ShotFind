@@ -3,12 +3,15 @@ package com.ilkimeren.shotfind.notification
 import android.content.ContentUris
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.lifecycle.lifecycleScope
 import com.ilkimeren.shotfind.data.ScreenshotRepository
 import com.ilkimeren.shotfind.util.ShotNotifications
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
@@ -22,20 +25,29 @@ class TrashActivity : ComponentActivity() {
     private val trashLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
+        Log.d(TAG, "Trash result: ${result.resultCode} (OK = $RESULT_OK)")
         if (result.resultCode == RESULT_OK) {
-            ShotNotifications.cancel(this, mediaId)
-            lifecycleScope.launch {
-                ScreenshotRepository(applicationContext).removeFromDatabase(mediaId)
-                finish()
+            val appContext = applicationContext
+            val id = mediaId
+            // Not tied to this activity, so closing it can't cancel the work halfway
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                try {
+                    ScreenshotRepository(appContext).markTrashed(id)
+                    Log.d(TAG, "Marked as trashed: $id")
+                    ShotNotifications.showTrashed(appContext, id)
+                    Log.d(TAG, "Trashed notification posted: $id")
+                } catch (e: Exception) {
+                    Log.e(TAG, "After-trash work failed", e)
+                }
             }
-        } else {
-            finish() // user cancelled; keep the notification
         }
+        finish()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         mediaId = intent.getLongExtra(ShotNotifications.EXTRA_MEDIA_ID, -1L)
+        Log.d(TAG, "TrashActivity opened for $mediaId")
         if (mediaId < 0) {
             finish()
             return
@@ -48,9 +60,13 @@ class TrashActivity : ComponentActivity() {
             val request = MediaStore.createTrashRequest(contentResolver, listOf(uri), true)
             trashLauncher.launch(IntentSenderRequest.Builder(request.intentSender).build())
         } catch (e: Exception) {
-            // e.g. the file was already deleted from the gallery
+            Log.e(TAG, "Could not create trash request", e)
             ShotNotifications.cancel(this, mediaId)
             finish()
         }
+    }
+
+    private companion object {
+        const val TAG = "ShotFindTrash"
     }
 }
