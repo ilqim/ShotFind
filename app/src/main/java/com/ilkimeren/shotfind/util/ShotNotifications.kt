@@ -22,11 +22,16 @@ import com.ilkimeren.shotfind.data.Screenshot
 import androidx.core.app.RemoteInput
 import com.ilkimeren.shotfind.notification.NoteReplyReceiver
 import com.ilkimeren.shotfind.notification.TrashActivity
+import com.ilkimeren.shotfind.data.TagEntity
+import com.ilkimeren.shotfind.notification.MoveActivity
 
 object ShotNotifications {
 
     private const val CHANNEL_NEW_SCREENSHOTS = "new_screenshots"
     private const val SUMMARY_NOTIFICATION_ID = 1
+
+    const val EXTRA_TAG_FOLDER = "tag_folder"
+    const val EXTRA_TAG_NAME = "tag_name"
 
     const val EXTRA_MEDIA_ID = "media_id"
     const val KEY_NOTE_REPLY = "note_reply"
@@ -50,7 +55,7 @@ object ShotNotifications {
                 PackageManager.PERMISSION_GRANTED
 
     @SuppressLint("MissingPermission") // checked with canPost()
-    fun showNewScreenshot(context: Context, screenshot: Screenshot) {
+    fun showNewScreenshot(context: Context, screenshot: Screenshot, suggestedTag: TagEntity?) {
         if (!canPost(context)) return
         ensureChannels(context)
 
@@ -73,7 +78,9 @@ object ShotNotifications {
             )
             .setContentIntent(openDetailIntent(context, screenshot.id))
             .setAutoCancel(true) // dismiss when tapped
+            .setOnlyAlertOnce(true) // if the same screenshot is re-notified, don't pop up again
             .addAction(noteAction(context, screenshot.id))
+            .apply { suggestedTag?.let { addAction(moveAction(context, screenshot.id, it)) } }
             .addAction(trashAction(context, screenshot.id))
             .build()
 
@@ -122,6 +129,41 @@ object ShotNotifications {
         NotificationManagerCompat.from(context).notify(notificationId(mediaId), notification)
     }
 
+    /** Replaces the screenshot's notification after it was moved into a tag folder. */
+    @SuppressLint("MissingPermission") // checked with canPost()
+    fun showMoved(context: Context, mediaId: Long, tagName: String) {
+        if (!canPost(context)) return
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_NEW_SCREENSHOTS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("$tagName etiketine taşındı")
+            .setContentIntent(openDetailIntent(context, mediaId))
+            .setSilent(true)
+            .setAutoCancel(true)
+            .setTimeoutAfter(4_000)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(notificationId(mediaId), notification)
+    }
+
+    private fun moveAction(context: Context, mediaId: Long, tag: TagEntity): NotificationCompat.Action {
+        val intent = Intent(context, MoveActivity::class.java)
+            .putExtra(EXTRA_MEDIA_ID, mediaId)
+            .putExtra(EXTRA_TAG_FOLDER, tag.folderName)
+            .putExtra(EXTRA_TAG_NAME, tag.name)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId(mediaId),
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        return NotificationCompat.Action.Builder(R.drawable.ic_notification, tag.name, pendingIntent)
+            .build()
+    }
+
     fun cancel(context: Context, mediaId: Long) {
         NotificationManagerCompat.from(context).cancel(notificationId(mediaId))
     }
@@ -160,7 +202,7 @@ object ShotNotifications {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        return NotificationCompat.Action.Builder(R.drawable.ic_notification, "Sil", pendingIntent)
+        return NotificationCompat.Action.Builder(R.drawable.ic_notification, "Çöpe At", pendingIntent)
             .build()
     }
 

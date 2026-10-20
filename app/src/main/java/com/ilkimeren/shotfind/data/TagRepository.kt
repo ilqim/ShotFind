@@ -12,9 +12,11 @@ class TagRepository(context: Context) {
     fun observeTags(): Flow<List<TagEntity>> =
         dao.observeAll().onStart { ensureDefaultTags() }
 
-    private suspend fun ensureDefaultTags() {
+    suspend fun ensureDefaultTags() {
         if (dao.count() == 0) dao.insertAll(DEFAULT_TAGS)
     }
+
+    suspend fun getByFolder(folderName: String): TagEntity? = dao.getByFolder(folderName)
 
     private companion object {
         val DEFAULT_TAGS = listOf(

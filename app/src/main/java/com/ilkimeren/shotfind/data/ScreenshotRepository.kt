@@ -42,6 +42,28 @@ class ScreenshotRepository(context: Context) {
         dao.deleteByIds(listOf(mediaId))
     }
 
+    suspend fun getScreenshot(mediaId: Long): Screenshot? =
+        dao.getById(mediaId)?.toScreenshot()
+
+    /**
+     * Guesses the most likely tag: the one most used for this app, else the one most
+     * used overall, else "Sonra Bak". Learns from where the user files screenshots.
+     */
+    suspend fun suggestTag(screenshot: Screenshot): TagEntity? {
+        val tags = TagRepository(appContext)
+        tags.ensureDefaultTags()
+
+        val folderPath = screenshot.sourceApp?.let { dao.mostUsedFolderForApp(it, INBOX_FOLDERS) }
+            ?: dao.mostUsedFolder(INBOX_FOLDERS)
+
+        // Only suggest folders that are real tags (the user may have made other subfolders)
+        val fromHistory = folderPath
+            ?.let { tagFolderOf(it) }
+            ?.let { tags.getByFolder(it) }
+
+        return fromHistory ?: tags.getByFolder(FALLBACK_TAG_FOLDER)
+    }
+
     /** True if the user granted media management, so moves need no confirmation. */
     fun canMoveWithoutAsking(): Boolean = MediaStore.canManageMedia(appContext)
 
@@ -225,6 +247,8 @@ class ScreenshotRepository(context: Context) {
         private const val MAX_SEARCH_WORDS = 8
         private const val ID_OVERLAP = 100L
         private const val MAX_RESULTS = 300
+
+        private const val FALLBACK_TAG_FOLDER = "Sonra Bak"
 
         /** "DCIM/Screenshots/Ders/" -> "DCIM/Screenshots/" */
         fun baseFolderOf(relativePath: String): String =

@@ -59,6 +59,32 @@ abstract class ScreenshotDao {
     @Query("SELECT mediaId FROM screenshots WHERE mediaId IN (:ids)")
     abstract suspend fun existingIds(ids: List<Long>): List<Long>
 
+    // ---- Tag suggestions ----
+
+    /** The tag folder the user most often uses for screenshots from this app. */
+    @Query(
+        """
+        SELECT relativePath FROM screenshots
+        WHERE sourceApp = :sourceApp AND relativePath NOT IN (:inboxFolders)
+        GROUP BY relativePath
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+        """
+    )
+    abstract suspend fun mostUsedFolderForApp(sourceApp: String, inboxFolders: List<String>): String?
+
+    /** The tag folder used most often overall. */
+    @Query(
+        """
+        SELECT relativePath FROM screenshots
+        WHERE relativePath NOT IN (:inboxFolders)
+        GROUP BY relativePath
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+        """
+    )
+    abstract suspend fun mostUsedFolder(inboxFolders: List<String>): String?
+
     // ---- Single screenshot ----
 
     @Query("SELECT * FROM screenshots WHERE mediaId = :mediaId")
