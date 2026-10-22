@@ -89,6 +89,35 @@ abstract class ScreenshotDao {
     )
     abstract suspend fun mostUsedFolder(inboxFolders: List<String>): String?
 
+    // ---- Albums ----
+
+    /** One row per tag folder: how many screenshots, and the newest one as the cover. */
+    @Query(
+        """
+        SELECT s.relativePath AS relativePath,
+               COUNT(*) AS count,
+               (SELECT c.uri FROM screenshots c
+                WHERE c.relativePath = s.relativePath AND c.trashedAt IS NULL
+                ORDER BY c.capturedAt DESC LIMIT 1) AS coverUri
+        FROM screenshots s
+        WHERE s.trashedAt IS NULL AND s.relativePath NOT IN (:inboxFolders)
+        GROUP BY s.relativePath
+        """
+    )
+    abstract fun observeFolderSummaries(inboxFolders: List<String>): Flow<List<FolderSummary>>
+
+    @Query("SELECT * FROM screenshots WHERE relativePath IN (:folders) AND trashedAt IS NULL ORDER BY capturedAt DESC")
+    abstract fun observeInFolders(folders: List<String>): Flow<List<ScreenshotEntity>>
+
+    @Query("SELECT * FROM screenshots WHERE keptAt IS NOT NULL AND trashedAt IS NULL AND relativePath IN (:inboxFolders) ORDER BY capturedAt DESC")
+    abstract fun observeKept(inboxFolders: List<String>): Flow<List<ScreenshotEntity>>
+
+    @Query("SELECT COUNT(*) FROM screenshots WHERE keptAt IS NOT NULL AND trashedAt IS NULL AND relativePath IN (:inboxFolders)")
+    abstract fun observeKeptCount(inboxFolders: List<String>): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM screenshots WHERE trashedAt IS NOT NULL")
+    abstract fun observeTrashedCount(): Flow<Int>
+
     // ---- Sorting ----
 
     @Query("UPDATE screenshots SET keptAt = :keptAt WHERE mediaId = :mediaId")

@@ -36,8 +36,6 @@ import com.ilkimeren.shotfind.util.isBatteryUnrestricted
 import com.ilkimeren.shotfind.util.openAppSettings
 import com.ilkimeren.shotfind.util.openManageMediaSettings
 import com.ilkimeren.shotfind.util.openNotificationSettings
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.DeleteOutline
 
 /** Snapshot of everything ShotFind needs from the system. */
 private data class PermissionStatuses(
@@ -57,10 +55,7 @@ private data class PermissionStatuses(
 }
 
 @Composable
-fun SettingsScreen(
-    onOpenTrash: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun SettingsScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var statuses by remember { mutableStateOf(PermissionStatuses.read(context)) }
 
@@ -109,29 +104,6 @@ fun SettingsScreen(
             granted = statuses.batteryUnrestricted,
             onClick = { openAppSettings(context) }
         )
-
-        Spacer(Modifier.height(24.dp))
-        Text("Depolama", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(4.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onOpenTrash)
-                .padding(vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Outlined.DeleteOutline, contentDescription = null)
-            Spacer(Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Silinenler", style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    text = "Çöpe attığın ekran görüntülerini 30 gün içinde geri al",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null)
-        }
     }
 }
 

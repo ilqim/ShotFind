@@ -17,6 +17,7 @@ class TagRepository(context: Context) {
     }
 
     suspend fun getByFolder(folderName: String): TagEntity? = dao.getByFolder(folderName)
+    suspend fun getById(id: Long): TagEntity? = dao.getById(id)
 
     private companion object {
         val DEFAULT_TAGS = listOf(

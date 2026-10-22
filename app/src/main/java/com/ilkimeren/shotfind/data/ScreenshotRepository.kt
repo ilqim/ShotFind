@@ -49,6 +49,22 @@ class ScreenshotRepository(context: Context) {
     fun observeTrashed(): Flow<List<Screenshot>> =
         dao.observeTrashed().map { entities -> entities.map { it.toScreenshot() } }
 
+    fun observeFolderSummaries(): Flow<List<FolderSummary>> =
+        dao.observeFolderSummaries(INBOX_FOLDERS)
+
+    fun observeKeptCount(): Flow<Int> = dao.observeKeptCount(INBOX_FOLDERS)
+
+    fun observeTrashedCount(): Flow<Int> = dao.observeTrashedCount()
+
+    /** Screenshots in a tag folder, e.g. "Ders" -> DCIM/Screenshots/Ders/ */
+    fun observeTagAlbum(folderName: String): Flow<List<Screenshot>> =
+        dao.observeInFolders(INBOX_FOLDERS.map { "$it$folderName/" })
+            .map { entities -> entities.map { it.toScreenshot() } }
+
+    /** Screenshots the user kept while sorting (still in the screenshot folder). */
+    fun observeKept(): Flow<List<Screenshot>> =
+        dao.observeKept(INBOX_FOLDERS).map { entities -> entities.map { it.toScreenshot() } }
+
     /** System dialog to take several screenshots out of the trash at once. */
     fun createRestoreRequest(uris: List<android.net.Uri>): IntentSender =
         MediaStore.createTrashRequest(appContext.contentResolver, uris, false).intentSender

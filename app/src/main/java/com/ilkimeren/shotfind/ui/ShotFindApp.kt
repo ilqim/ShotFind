@@ -30,6 +30,10 @@ import androidx.navigation.navDeepLink
 import androidx.compose.foundation.layout.consumeWindowInsets
 import com.ilkimeren.shotfind.ui.trash.TrashScreen
 import com.ilkimeren.shotfind.ui.sort.SortScreen
+import androidx.compose.material.icons.outlined.Folder
+import com.ilkimeren.shotfind.ui.tags.AlbumScreen
+import com.ilkimeren.shotfind.ui.tags.AlbumViewModel
+import com.ilkimeren.shotfind.ui.tags.TagsScreen
 
 /** The tabs shown in the bottom navigation bar. */
 enum class TopLevelDestination(
@@ -38,6 +42,7 @@ enum class TopLevelDestination(
     val icon: ImageVector
 ) {
     INBOX("inbox", "Gelen kutusu", Icons.Outlined.Inbox),
+    TAGS("tags", "Etiketler", Icons.Outlined.Folder),
     SEARCH("search", "Ara", Icons.Outlined.Search),
     SETTINGS("settings", "Ayarlar", Icons.Outlined.Settings)
 }
@@ -45,7 +50,10 @@ enum class TopLevelDestination(
 private const val DETAIL_ROUTE = "detail/{${DetailViewModel.MEDIA_ID_ARG}}"
 private const val TRASH_ROUTE = "trash"
 private const val SORT_ROUTE = "sort"
+private const val ALBUM_ROUTE = "album/{${AlbumViewModel.ALBUM_ID_ARG}}"
+
 private fun detailRoute(mediaId: Long) = "detail/$mediaId"
+private fun albumRoute(albumId: Long) = "album/$albumId"
 
 @Composable
 fun ShotFindApp() {
@@ -97,11 +105,27 @@ fun ShotFindApp() {
             composable(SORT_ROUTE) {
                 SortScreen(onBack = { navController.popBackStack() })
             }
+            composable(TopLevelDestination.TAGS.route) {
+                TagsScreen(
+                    onOpenAlbum = { navController.navigate(albumRoute(it)) },
+                    onOpenKept = { navController.navigate(albumRoute(AlbumViewModel.KEPT_ALBUM_ID)) },
+                    onOpenTrash = { navController.navigate(TRASH_ROUTE) }
+                )
+            }
+            composable(
+                route = ALBUM_ROUTE,
+                arguments = listOf(navArgument(AlbumViewModel.ALBUM_ID_ARG) { type = NavType.LongType })
+            ) {
+                AlbumScreen(
+                    onBack = { navController.popBackStack() },
+                    onScreenshotClick = { navController.navigate(detailRoute(it)) }
+                )
+            }
             composable(TopLevelDestination.SEARCH.route) {
                 SearchScreen(onScreenshotClick = { navController.navigate(detailRoute(it)) })
             }
             composable(TopLevelDestination.SETTINGS.route) {
-                SettingsScreen(onOpenTrash = { navController.navigate(TRASH_ROUTE) })
+                SettingsScreen()
             }
             composable(TRASH_ROUTE) {
                 TrashScreen(onBack = { navController.popBackStack() })

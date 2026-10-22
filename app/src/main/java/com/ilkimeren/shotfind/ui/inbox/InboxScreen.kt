@@ -39,12 +39,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil3.compose.AsyncImage
 import com.ilkimeren.shotfind.data.Screenshot
 import com.ilkimeren.shotfind.util.hasImagePermission
 import com.ilkimeren.shotfind.util.imagePermission
@@ -58,6 +56,7 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.FilledTonalButton
+import com.ilkimeren.shotfind.ui.components.ScreenshotThumbnail
 
 @Composable
 fun InboxScreen(
@@ -209,38 +208,6 @@ private fun ScreenshotGrid(
                     onClick = { onScreenshotClick(screenshot.id) }
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun ScreenshotThumbnail(screenshot: Screenshot, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .aspectRatio(9f / 16f)
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onClick)
-    ) {
-        AsyncImage(
-            model = screenshot.uri,
-            contentDescription = screenshot.displayName,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-        screenshot.sourceApp?.let { app ->
-            Text(
-                text = app,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.55f))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            )
         }
     }
 }
