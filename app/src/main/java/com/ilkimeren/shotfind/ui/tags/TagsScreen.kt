@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Sell
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import com.ilkimeren.shotfind.data.TagRepository
 
 @Composable
 fun TagsScreen(
@@ -76,6 +78,16 @@ fun TagsScreen(
                 onClick = { onOpenAlbum(album.tag.id) }
             )
         }
+        item(key = "new") {
+            AlbumCard(
+                title = "Yeni etiket",
+                count = null,
+                coverUri = null,
+                dotColor = null,
+                placeholderIcon = Icons.Outlined.Add,
+                onClick = viewModel::openCreate
+            )
+        }
         item(key = "kept") {
             AlbumCard(
                 title = "Saklananlar",
@@ -97,12 +109,23 @@ fun TagsScreen(
             )
         }
     }
+
+    if (viewModel.showCreateDialog) {
+        TagEditDialog(
+            title = "Yeni etiket",
+            initialName = "",
+            initialColor = TagRepository.COLOR_PALETTE.first(),
+            error = viewModel.createError,
+            onConfirm = viewModel::create,
+            onDismiss = viewModel::closeCreate
+        )
+    }
 }
 
 @Composable
 private fun AlbumCard(
     title: String,
-    count: Int,
+    count: Int?,
     coverUri: Uri?,
     dotColor: Color?,
     placeholderIcon: ImageVector,
@@ -146,10 +169,12 @@ private fun AlbumCard(
             }
             Text(title, style = MaterialTheme.typography.titleSmall)
         }
-        Text(
-            text = "$count ekran görüntüsü",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (count != null) {
+            Text(
+                text = "$count ekran görüntüsü",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

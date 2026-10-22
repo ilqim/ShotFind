@@ -114,6 +114,10 @@ class ScreenshotRepository(context: Context) {
     fun createWriteRequest(uri: android.net.Uri): IntentSender =
         MediaStore.createWriteRequest(appContext.contentResolver, listOf(uri)).intentSender
 
+    /** One system dialog for several screenshots at once. */
+    fun createWriteRequest(uris: List<android.net.Uri>): IntentSender =
+        MediaStore.createWriteRequest(appContext.contentResolver, uris).intentSender
+
     /**
      * Moves the screenshot into a tag folder (e.g. DCIM/Screenshots/Ders/),
      * or back to the inbox when [tagFolder] is null. Returns false if it failed.

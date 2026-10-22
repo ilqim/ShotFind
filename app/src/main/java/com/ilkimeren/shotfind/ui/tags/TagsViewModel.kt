@@ -2,6 +2,9 @@ package com.ilkimeren.shotfind.ui.tags
 
 import android.app.Application
 import android.net.Uri
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 data class TagAlbum(
     val tag: TagEntity,
@@ -49,4 +53,26 @@ class TagsViewModel(application: Application) : AndroidViewModel(application) {
         }
         TagsUiState(albums, keptCount, trashedCount)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    var showCreateDialog by mutableStateOf(false)
+        private set
+
+    var createError by mutableStateOf<String?>(null)
+        private set
+
+    fun openCreate() {
+        createError = null
+        showCreateDialog = true
+    }
+
+    fun closeCreate() {
+        showCreateDialog = false
+    }
+
+    fun create(name: String, colorArgb: Int) {
+        viewModelScope.launch {
+            val error = tagRepository.createTag(name, colorArgb)
+            if (error == null) showCreateDialog = false else createError = error
+        }
+    }
 }

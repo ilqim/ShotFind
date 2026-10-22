@@ -1,25 +1,36 @@
 package com.ilkimeren.shotfind.ui.tags
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +50,22 @@ fun AlbumScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
+    val writeLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        viewModel.onWriteRequestResult(result.resultCode == Activity.RESULT_OK)
+    }
+    LaunchedEffect(viewModel.writeRequest) {
+        viewModel.writeRequest?.let { sender ->
+            writeLauncher.launch(IntentSenderRequest.Builder(sender).build())
+            viewModel.onWriteRequestLaunched()
+        }
+    }
+    // Leave the screen after the tag is deleted
+    LaunchedEffect(viewModel.closed) {
+        if (viewModel.closed) onBack()
+    }
+
     Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text(state?.title ?: "") },
@@ -47,8 +74,21 @@ fun AlbumScreen(
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Geri")
                 }
             },
+            actions = {
+                if (state?.tag != null) {
+                    IconButton(onClick = viewModel::openEdit) {
+                        Icon(Icons.Outlined.Edit, contentDescription = "Düzenle")
+                    }
+                    IconButton(onClick = viewModel::openDelete) {
+                        Icon(Icons.Outlined.DeleteOutline, contentDescription = "Etiketi sil")
+                    }
+                }
+            },
             windowInsets = WindowInsets(0)
         )
+        if (viewModel.working) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
 
         val current = state
         when {
@@ -82,5 +122,41 @@ fun AlbumScreen(
                 }
             }
         }
+    }
+
+    val tag = state?.tag
+    if (viewModel.showEditDialog && tag != null) {
+        TagEditDialog(
+            title = "Etiketi düzenle",
+            initialName = tag.name,
+            initialColor = tag.colorArgb,
+            error = viewModel.editError,
+            onConfirm = viewModel::saveEdit,
+            onDismiss = viewModel::closeEdit
+        )
+    }
+    if (viewModel.showDeleteDialog && tag != null) {
+        val count = state?.screenshots?.size ?: 0
+        AlertDialog(
+            onDismissRequest = viewModel::closeDelete,
+            title = { Text("Etiketi sil") },
+            text = {
+                Text(
+                    if (count > 0) {
+                        "\"${tag.name}\" etiketi silinecek. İçindeki $count ekran görüntüsü Gelen kutusuna geri taşınacak; hiçbiri silinmeyecek."
+                    } else {
+                        "\"${tag.name}\" etiketi silinecek."
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmDelete) {
+                    Text("Sil", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::closeDelete) { Text("Vazgeç") }
+            }
+        )
     }
 }
