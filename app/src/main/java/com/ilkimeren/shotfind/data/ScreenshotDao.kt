@@ -14,7 +14,7 @@ abstract class ScreenshotDao {
 
     // ---- Inbox and counts ----
 
-    @Query("SELECT * FROM screenshots WHERE relativePath IN (:folders) AND trashedAt IS NULL ORDER BY capturedAt DESC")
+    @Query("SELECT * FROM screenshots WHERE relativePath IN (:folders) AND trashedAt IS NULL AND keptAt IS NULL ORDER BY capturedAt DESC")
     abstract fun observeByFolders(folders: List<String>): Flow<List<ScreenshotEntity>>
 
     @Query("SELECT COUNT(*) FROM screenshots WHERE trashedAt IS NULL")
@@ -88,6 +88,14 @@ abstract class ScreenshotDao {
         """
     )
     abstract suspend fun mostUsedFolder(inboxFolders: List<String>): String?
+
+    // ---- Sorting ----
+
+    @Query("UPDATE screenshots SET keptAt = :keptAt WHERE mediaId = :mediaId")
+    abstract suspend fun markKept(mediaId: Long, keptAt: Long)
+
+    @Query("UPDATE screenshots SET keptAt = NULL WHERE mediaId = :mediaId")
+    abstract suspend fun clearKept(mediaId: Long)
 
     // ---- Trash ----
 

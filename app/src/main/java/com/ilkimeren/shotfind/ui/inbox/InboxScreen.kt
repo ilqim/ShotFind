@@ -56,10 +56,14 @@ import androidx.compose.runtime.LaunchedEffect
 import com.ilkimeren.shotfind.util.ShotNotifications
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.FilledTonalButton
+
 @Composable
 fun InboxScreen(
     modifier: Modifier = Modifier,
     onScreenshotClick: (Long) -> Unit = {},
+    onStartSorting: () -> Unit = {},
     viewModel: InboxViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -139,6 +143,7 @@ fun InboxScreen(
             ScreenshotGrid(
                 screenshots = state.screenshots,
                 totalCount = state.totalCount,
+                onStartSorting = onStartSorting,
                 pendingOcrCount = state.pendingOcrCount,
                 onScreenshotClick = onScreenshotClick,
                 modifier = modifier
@@ -152,6 +157,7 @@ private fun ScreenshotGrid(
     screenshots: List<Screenshot>,
     totalCount: Int,
     onScreenshotClick: (Long) -> Unit,
+    onStartSorting: () -> Unit,
     pendingOcrCount: Int,
     modifier: Modifier = Modifier
 ) {
@@ -167,20 +173,28 @@ private fun ScreenshotGrid(
     }
 
     Column(modifier.fillMaxSize()) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Text(
-                text = "${screenshots.size} ekran görüntüsü",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                text = if (pendingOcrCount > 0) {
-                    "Metinler taranıyor: ${totalCount - pendingOcrCount} / $totalCount"
-                } else {
-                    "$totalCount ekran görüntüsünün tamamı aranabilir"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${screenshots.size} ekran görüntüsü",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = if (pendingOcrCount > 0) {
+                        "Metinler taranıyor: ${totalCount - pendingOcrCount} / $totalCount"
+                    } else {
+                        "$totalCount ekran görüntüsünün tamamı aranabilir"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            FilledTonalButton(onClick = onStartSorting) {
+                Text("Ayıkla")
+            }
         }
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 110.dp),

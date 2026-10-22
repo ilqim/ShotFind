@@ -21,7 +21,8 @@ data class ScreenshotEntity(
     val ocrText: String? = null,       // filled by OCR in the next step
     val ocrDone: Boolean = false,
     val searchText: String? = null,     // normalized OCR text + note + source app, used for search
-    val trashedAt: Long? = null        // set when we moved it to the system trash
+    val trashedAt: Long? = null,        // set when we moved it to the system trash
+    val keptAt: Long? = null           // set when the user chose "keep" while sorting
 )
 
 /** Just the columns needed to detect moved or renamed files during sync. */

@@ -57,6 +57,18 @@ class ScreenshotRepository(context: Context) {
         dao.clearTrashed(ids)
     }
 
+    suspend fun markKept(mediaId: Long) {
+        dao.markKept(mediaId, System.currentTimeMillis())
+    }
+
+    suspend fun clearKept(mediaId: Long) {
+        dao.clearKept(mediaId)
+    }
+
+    /** System dialog to move screenshots to the trash (skipped with media management). */
+    fun createTrashRequest(uris: List<android.net.Uri>): IntentSender =
+        MediaStore.createTrashRequest(appContext.contentResolver, uris, true).intentSender
+
     suspend fun getScreenshot(mediaId: Long): Screenshot? =
         dao.getById(mediaId)?.toScreenshot()
 
