@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ScreenshotEntity::class, TagEntity::class],
-    version =7,
+    version =8,
     exportSchema = false
 )
 abstract class ShotFindDatabase : RoomDatabase() {
@@ -52,6 +52,15 @@ abstract class ShotFindDatabase : RoomDatabase() {
             }
         }
 
+        /** Version 7 -> 8: temporary tags and when a screenshot was put into one. */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tags` ADD COLUMN `isTemporary` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE `tags` SET `isTemporary` = 1 WHERE `folderName` = 'Geçici'")
+                db.execSQL("ALTER TABLE `screenshots` ADD COLUMN `tempSince` INTEGER")
+            }
+        }
+
         /** Returns the single database instance for the whole app. */
         fun getInstance(context: Context): ShotFindDatabase =
             instance ?: synchronized(this) {
@@ -60,7 +69,7 @@ abstract class ShotFindDatabase : RoomDatabase() {
                     ShotFindDatabase::class.java,
                     "shotfind.db"
                 )
-                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     // Still a safety net for older development versions (1-3).
                     // Must be removed before release.
                     .fallbackToDestructiveMigration(dropAllTables = true)

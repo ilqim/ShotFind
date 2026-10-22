@@ -3,6 +3,7 @@ package com.ilkimeren.shotfind.data
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import androidx.room.ColumnInfo
 
 /** A tag is a real folder: DCIM/Screenshots/<folderName>/ */
 @Entity(
@@ -14,5 +15,7 @@ data class TagEntity(
     val name: String,
     val colorArgb: Int,
     val folderName: String,
-    val sortOrder: Int
+    val sortOrder: Int,
+    @ColumnInfo(defaultValue = "0")
+    val isTemporary: Boolean = false   // screenshots here are offered for deletion after a while
 )

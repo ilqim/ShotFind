@@ -114,7 +114,8 @@ fun ShotFindApp() {
             }
             composable(
                 route = ALBUM_ROUTE,
-                arguments = listOf(navArgument(AlbumViewModel.ALBUM_ID_ARG) { type = NavType.LongType })
+                arguments = listOf(navArgument(AlbumViewModel.ALBUM_ID_ARG) { type = NavType.LongType }),
+                deepLinks = listOf(navDeepLink { uriPattern = "shotfind://album/{${AlbumViewModel.ALBUM_ID_ARG}}" })
             ) {
                 AlbumScreen(
                     onBack = { navController.popBackStack() },

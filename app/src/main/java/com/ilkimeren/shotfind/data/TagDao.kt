@@ -29,6 +29,9 @@ interface TagDao {
     @Query("SELECT COUNT(*) FROM tags")
     suspend fun count(): Int
 
+    @Query("SELECT * FROM tags WHERE isTemporary = 1")
+    suspend fun getTemporary(): List<TagEntity>
+
     /** -1 when there are no tags yet. */
     @Query("SELECT COALESCE(MAX(sortOrder), -1) FROM tags")
     suspend fun maxSortOrder(): Int

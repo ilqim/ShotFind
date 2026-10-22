@@ -82,7 +82,6 @@ class TagRepository(context: Context) {
             TagEntity(name = "Sosyal", colorArgb = COLOR_PALETTE[3], folderName = "Sosyal", sortOrder = 3),
             TagEntity(name = "Belge", colorArgb = COLOR_PALETTE[4], folderName = "Belge", sortOrder = 4),
             TagEntity(name = "Sonra Bak", colorArgb = COLOR_PALETTE[5], folderName = "Sonra Bak", sortOrder = 5),
-            TagEntity(name = "Geçici", colorArgb = COLOR_PALETTE[6], folderName = "Geçici", sortOrder = 6)
-        )
+            TagEntity(name = "Geçici", colorArgb = COLOR_PALETTE[6], folderName = "Geçici", sortOrder = 6, isTemporary = true)        )
     }
 }

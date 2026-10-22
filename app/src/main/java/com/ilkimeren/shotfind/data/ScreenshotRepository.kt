@@ -16,6 +16,7 @@ class ScreenshotRepository(context: Context) {
 
     private val appContext = context.applicationContext
     private val dao = ShotFindDatabase.getInstance(appContext).screenshotDao()
+    private val tagDao = ShotFindDatabase.getInstance(appContext).tagDao()
 
     /** Screenshots directly in the system screenshot folder, updated live from the database. */
     fun observeInbox(): Flow<List<Screenshot>> =
@@ -64,6 +65,17 @@ class ScreenshotRepository(context: Context) {
     /** Screenshots the user kept while sorting (still in the screenshot folder). */
     fun observeKept(): Flow<List<Screenshot>> =
         dao.observeKept(INBOX_FOLDERS).map { entities -> entities.map { it.toScreenshot() } }
+
+    /** Screenshots that have been in a temporary tag for longer than the retention time. */
+    suspend fun findExpiredTemporary(): List<Screenshot> {
+        val temporaryTags = tagDao.getTemporary()
+        if (temporaryTags.isEmpty()) return emptyList()
+        val folders = temporaryTags.flatMap { tag -> INBOX_FOLDERS.map { "$it${tag.folderName}/" } }
+        val before = System.currentTimeMillis() - TEMP_RETENTION_MS
+        return dao.getExpiredTemp(folders, before).map { it.toScreenshot() }
+    }
+
+    suspend fun firstTemporaryTagId(): Long? = tagDao.getTemporary().firstOrNull()?.id
 
     /** System dialog to take several screenshots out of the trash at once. */
     fun createRestoreRequest(uris: List<android.net.Uri>): IntentSender =
@@ -139,6 +151,9 @@ class ScreenshotRepository(context: Context) {
 
             if (updatedRows > 0) {
                 dao.updateLocation(screenshot.id, target, screenshot.displayName)
+                // Start the clock when it enters a temporary tag; clear it otherwise
+                val isTemporary = tagFolder != null && tagDao.getByFolder(tagFolder)?.isTemporary == true
+                dao.setTempSince(screenshot.id, if (isTemporary) System.currentTimeMillis() else null)
                 true
             } else {
                 false
@@ -296,6 +311,7 @@ class ScreenshotRepository(context: Context) {
         // Samsung uses DCIM/Screenshots/, stock Android uses Pictures/Screenshots/
         val INBOX_FOLDERS = listOf("DCIM/Screenshots/", "Pictures/Screenshots/")
         private const val MAX_SEARCH_WORDS = 8
+        const val TEMP_RETENTION_MS = 7L * 24 * 60 * 60 * 1000 // 7 days
         private const val ID_OVERLAP = 100L
         private const val MAX_RESULTS = 300
 

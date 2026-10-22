@@ -25,11 +25,16 @@ import com.ilkimeren.shotfind.notification.TrashActivity
 import com.ilkimeren.shotfind.data.TagEntity
 import com.ilkimeren.shotfind.notification.MoveActivity
 import com.ilkimeren.shotfind.notification.RestoreActivity
+import com.ilkimeren.shotfind.notification.TempCleanupActivity
 
 object ShotNotifications {
 
     private const val CHANNEL_NEW_SCREENSHOTS = "new_screenshots"
     private const val SUMMARY_NOTIFICATION_ID = 1
+
+    private const val CHANNEL_CLEANUP = "temp_cleanup"
+    private const val TEMP_CLEANUP_NOTIFICATION_ID = 2
+    const val EXTRA_MEDIA_IDS = "media_ids"
 
     const val EXTRA_TAG_FOLDER = "tag_folder"
     const val EXTRA_TAG_NAME = "tag_name"
@@ -58,9 +63,17 @@ object ShotNotifications {
             enableVibration(false)
         }
 
+        val cleanup = NotificationChannel(
+            CHANNEL_CLEANUP,
+            "Geçici temizlik",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Geçici etiketindeki ekran görüntülerinin süresi dolunca"
+        }
+
         // Safe to call many times; existing channels are left as they are
         context.getSystemService(NotificationManager::class.java)
-            .createNotificationChannels(listOf(newScreenshots, confirmations))
+            .createNotificationChannels(listOf(newScreenshots, confirmations, cleanup))
     }
 
     fun canPost(context: Context): Boolean =
@@ -186,6 +199,51 @@ object ShotNotifications {
             .build()
 
         NotificationManagerCompat.from(context).notify(notificationId(mediaId), notification)
+    }
+
+    @SuppressLint("MissingPermission") // checked with canPost()
+    fun showTempExpired(context: Context, mediaIds: List<Long>, albumId: Long?) {
+        if (!canPost(context) || mediaIds.isEmpty()) return
+        ensureChannels(context)
+
+        val trashIntent = Intent(context, TempCleanupActivity::class.java)
+            .putExtra(EXTRA_MEDIA_IDS, mediaIds.toLongArray())
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val trashPending = PendingIntent.getActivity(
+            context,
+            TEMP_CLEANUP_NOTIFICATION_ID,
+            trashIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // Tapping the notification opens the temporary album to review
+        val openIntent = if (albumId != null) {
+            Intent(Intent.ACTION_VIEW, "shotfind://album/$albumId".toUri(), context, MainActivity::class.java)
+        } else {
+            Intent(context, MainActivity::class.java)
+        }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+
+        val openPending = PendingIntent.getActivity(
+            context,
+            TEMP_CLEANUP_NOTIFICATION_ID,
+            openIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_CLEANUP)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("${mediaIds.size} geçici ekran görüntüsünün süresi doldu")
+            .setContentText("Çöpe atmak için dokun ya da gözden geçir")
+            .setContentIntent(openPending)
+            .addAction(R.drawable.ic_notification, "Çöpe at", trashPending)
+            .setAutoCancel(true)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(TEMP_CLEANUP_NOTIFICATION_ID, notification)
+    }
+
+    fun cancelTempExpired(context: Context) {
+        NotificationManagerCompat.from(context).cancel(TEMP_CLEANUP_NOTIFICATION_ID)
     }
 
     private fun moveAction(context: Context, mediaId: Long, tag: TagEntity): NotificationCompat.Action {

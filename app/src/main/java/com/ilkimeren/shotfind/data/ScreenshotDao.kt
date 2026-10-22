@@ -126,6 +126,22 @@ abstract class ScreenshotDao {
     @Query("UPDATE screenshots SET keptAt = NULL WHERE mediaId = :mediaId")
     abstract suspend fun clearKept(mediaId: Long)
 
+    // ---- Temporary ----
+
+    @Query("UPDATE screenshots SET tempSince = :tempSince WHERE mediaId = :mediaId")
+    abstract suspend fun setTempSince(mediaId: Long, tempSince: Long?)
+
+    /** Screenshots in temporary folders that have been there since before [before]. */
+    @Query(
+        """
+        SELECT * FROM screenshots
+        WHERE relativePath IN (:folders) AND trashedAt IS NULL
+          AND COALESCE(tempSince, capturedAt) < :before
+        ORDER BY capturedAt
+        """
+    )
+    abstract suspend fun getExpiredTemp(folders: List<String>, before: Long): List<ScreenshotEntity>
+
     // ---- Trash ----
 
     @Query("SELECT * FROM screenshots WHERE trashedAt IS NOT NULL ORDER BY trashedAt DESC")

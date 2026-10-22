@@ -8,6 +8,7 @@ import com.ilkimeren.shotfind.ui.ShotFindApp
 import com.ilkimeren.shotfind.ui.theme.ShotFindTheme
 import com.ilkimeren.shotfind.work.NewScreenshotWorker
 import com.ilkimeren.shotfind.work.WatchdogWorker
+import com.ilkimeren.shotfind.work.TempCleanupWorker
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -17,6 +18,7 @@ class MainActivity : ComponentActivity() {
         // Make sure the background watcher for new screenshots is armed
         NewScreenshotWorker.ensureScheduled(this)
         WatchdogWorker.schedule(this)
+        TempCleanupWorker.schedule(this)
         setContent {
             ShotFindTheme {
                 ShotFindApp()
